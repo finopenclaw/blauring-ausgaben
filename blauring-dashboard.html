@@ -6,8 +6,8 @@
 <title>Blauring Baden — Meine Ausgaben</title>
 <style>
   :root{
-    --blue-dark:#012e5b;--blue:#01579b;--blue-light:#2b8fd6;
-    --ink:#12293f;--muted:#65788c;--card:#fff;--line:#dce6ef;--bg:#eef4f9;
+    --blue-dark:#001f3f;--blue:#003366;--blue-light:#1f4e79;
+    --ink:#12293f;--muted:#5c6b7a;--card:#fffdf7;--line:#e6ddc9;--bg:#f7f1e3;
     --open:#b4770a;--paid:#0b6b43;
   }
   *{box-sizing:border-box;margin:0;padding:0}
@@ -74,6 +74,11 @@
     <div class="stat"><div class="v" id="sCount">0</div><div class="l">Einträge</div></div>
   </div>
 
+  <div class="card" id="reasonCard" style="display:none">
+    <h2>🏷️ Mein Anlass</h2>
+    <div id="reasonInfo"></div>
+  </div>
+
   <div class="card">
     <h2>➕ Neue Ausgabe erfassen</h2>
     <form id="expForm">
@@ -106,8 +111,8 @@
       <button type="button" class="btn gray small" id="camBtn" style="margin-top:8px">📷 Foto aufnehmen</button>
       <input type="file" id="fCamera" accept="image/*" capture="environment" style="display:none">
       <div class="msg" id="formMsg"></div>
-      <br>
-      <button class="btn" type="submit">💾 Ausgabe speichern</button>
+      <div style="height:22px"></div>
+      <button class="btn" type="submit">📨 Abschicken</button>
     </form>
   </div>
 
@@ -133,11 +138,18 @@ document.getElementById('logout').addEventListener('click', async () => {
 });
 
 let LEADERS = [];
+let BUDGETS = {};
+let MY_REASON = null;
 
 async function loadMeta(){
   const [r1, r2] = await Promise.all([fetch('/api/reasons'), fetch('/api/leaders')]);
   const reasons = await r1.json();
   LEADERS = await r2.json();
+  BUDGETS = {};
+  reasons.forEach(x => {
+    const name = (typeof x === 'string') ? x : x.reason;
+    BUDGETS[name] = (typeof x === 'string') ? 0 : Number(x.budget || 0);
+  });
   const sel = document.getElementById('fReason');
   sel.innerHTML = '<option value="">Bitte wählen…</option>';
   reasons.forEach(x => {
@@ -150,9 +162,44 @@ async function loadMeta(){
     `<option value="${l.id}">${l.name}</option>`));
   if (user && user.name) {
     const match = LEADERS.find(l => l.name.toLowerCase() === user.name.toLowerCase());
-    if (match) lsel.value = match.id;
+    if (match){ lsel.value = match.id; MY_REASON = match.reason || null; }
   }
+  if (MY_REASON) sel.value = MY_REASON;
+  renderReasonCard();
 }
+
+function renderReasonCard(){
+  const card = document.getElementById('reasonCard');
+  const w = document.getElementById('reasonInfo');
+  if (!MY_REASON){ card.style.display='none'; return; }
+  card.style.display='block';
+  const spent = ROWS_MINE.reduce((s,e)=>s+Number(e.amount),0);
+  const budget = BUDGETS[MY_REASON] || 0;
+  const rest = budget - spent;
+  const pct = budget > 0 ? Math.round(spent/budget*100) : null;
+  let bar = '<span style="font-size:.82rem;color:var(--muted)">kein Budget hinterlegt</span>';
+  if (budget > 0){
+    const w2 = Math.min(100, pct);
+    const col = pct>=100 ? '#c0392b' : (pct>=80 ? '#d68910' : '#0b6b43');
+    bar = `<div style="background:#e6ddc9;border-radius:8px;height:16px;min-width:150px;overflow:hidden;margin-top:6px">
+             <div style="height:16px;width:${w2}%;background:${col}"></div>
+           </div><span style="font-size:.8rem;color:var(--muted)">${pct}% ausgeschöpft</span>`;
+  }
+  w.innerHTML = `
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:16px">
+      <div><div style="font-size:.78rem;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">Anlass</div>
+           <div style="font-size:1.15rem;font-weight:800;color:var(--blue);margin-top:3px">${MY_REASON}</div></div>
+      <div><div style="font-size:.78rem;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">Ausgegeben</div>
+           <div style="font-size:1.15rem;font-weight:800;margin-top:3px">${spent.toFixed(2)} CHF</div></div>
+      <div><div style="font-size:.78rem;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">Budget</div>
+           <div style="font-size:1.15rem;font-weight:800;margin-top:3px">${budget>0?budget.toFixed(2)+' CHF':'—'}</div></div>
+      <div><div style="font-size:.78rem;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">Rest</div>
+           <div style="font-size:1.15rem;font-weight:800;margin-top:3px;color:${budget>0?(rest<0?'#c0392b':'#0b6b43'):'inherit'}">${budget>0?rest.toFixed(2)+' CHF':'—'}</div></div>
+    </div>
+    <div style="margin-top:10px">${bar}</div>`;
+}
+
+let ROWS_MINE = [];
 
 async function loadExpenses(){
   const res = await fetch('/api/expenses');
@@ -160,8 +207,10 @@ async function loadExpenses(){
   const mine = user && user.name
     ? all.filter(e => (e.leader_name || '').toLowerCase() === user.name.toLowerCase())
     : all;
+  ROWS_MINE = mine;
   renderList(mine);
   renderStats(mine);
+  renderReasonCard();
 }
 
 function renderStats(rows){

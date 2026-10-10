@@ -178,10 +178,16 @@ def init_db():
             last_name TEXT NOT NULL,
             email TEXT,
             phone TEXT,
+            reason TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES users(id)
         )
     ''')
+
+    # Anlass-Spalte bei bestehenden Installationen nachrüsten
+    lcols = [c['name'] for c in db.execute('PRAGMA table_info(leaders)').fetchall()]
+    if 'reason' not in lcols:
+        db.execute('ALTER TABLE leaders ADD COLUMN reason TEXT')
     
     # Expenses table
     db.execute('''
@@ -347,10 +353,10 @@ def me():
 
 @app.route('/api/leaders', methods=['GET'])
 def get_leaders():
-    """Get list of all leaders"""
+    """Get list of all leaders (inkl. zugewiesenem Anlass)"""
     db = get_db()
     leaders = db.execute('''
-        SELECT l.id, l.first_name, l.last_name, l.email, l.phone, u.role, u.username
+        SELECT l.id, l.first_name, l.last_name, l.email, l.phone, l.reason, u.role, u.username
         FROM leaders l 
         JOIN users u ON l.user_id = u.id 
         ORDER BY l.last_name, l.first_name
@@ -364,9 +370,35 @@ def get_leaders():
         'last_name': l['last_name'],
         'email': l['email'],
         'phone': l['phone'],
+        'reason': l['reason'],
         'role': l['role'],
         'username': l['username']
     } for l in leaders])
+
+@app.route('/api/leaders/<int:leader_id>', methods=['PUT'])
+@require_role('kassierer', 'admin')
+def update_leader(leader_id):
+    """Anlass (und Stammdaten) eines Leiters aendern"""
+    data = request.get_json(silent=True) or {}
+    db = get_db()
+    row = db.execute('SELECT id FROM leaders WHERE id = ?', (leader_id,)).fetchone()
+    if not row:
+        db.close()
+        return jsonify({'error': 'Leiter nicht gefunden'}), 404
+
+    fields, values = [], []
+    for col in ('first_name', 'last_name', 'email', 'phone', 'reason'):
+        if col in data:
+            fields.append(f'{col} = ?')
+            values.append((data.get(col) or '').strip())
+    if not fields:
+        db.close()
+        return jsonify({'error': 'Keine Änderungen'}), 400
+    values.append(leader_id)
+    db.execute(f"UPDATE leaders SET {', '.join(fields)} WHERE id = ?", values)
+    db.commit()
+    db.close()
+    return jsonify({'message': 'Leiter aktualisiert'})
 
 @app.route('/api/leaders', methods=['POST'])
 @require_role('kassierer', 'admin')
@@ -394,8 +426,8 @@ def add_leader():
         )
         uid = cur.lastrowid
         db.execute(
-            'INSERT INTO leaders (user_id, first_name, last_name, email, phone) VALUES (?, ?, ?, ?, ?)',
-            (uid, first_name, last_name, email, phone)
+            'INSERT INTO leaders (user_id, first_name, last_name, email, phone, reason) VALUES (?, ?, ?, ?, ?, ?)',
+            (uid, first_name, last_name, email, phone, (data.get('reason') or '').strip() or None)
         )
         db.commit()
         db.close()

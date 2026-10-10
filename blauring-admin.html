@@ -6,8 +6,8 @@
 <title>Blauring Baden — Stammdaten</title>
 <style>
   :root{
-    --blue-dark:#012e5b;--blue:#01579b;--blue-light:#2b8fd6;
-    --ink:#12293f;--muted:#65788c;--card:#fff;--line:#dce6ef;--bg:#eef4f9;
+    --blue-dark:#001f3f;--blue:#003366;--blue-light:#1f4e79;
+    --ink:#12293f;--muted:#5c6b7a;--card:#fffdf7;--line:#e6ddc9;--bg:#f7f1e3;
   }
   *{box-sizing:border-box;margin:0;padding:0}
   body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--ink);min-height:100vh}
@@ -74,6 +74,9 @@
       </div>
       <div class="grid2">
         <div><label for="lEmail">E-Mail</label><input id="lEmail" type="email"></div>
+        <div><label for="lReason">Anlass</label><select id="lReason"><option value="">— keinen —</option></select></div>
+      </div>
+      <div class="grid2">
         <div><label for="lRole">Rolle</label>
           <select id="lRole">
             <option value="leiter">Leiter</option>
@@ -119,6 +122,8 @@ document.getElementById('logout').addEventListener('click', async () => {
   window.location.href = '/login';
 });
 
+let REASONS = [];
+
 function flash(el, cls, text){
   el.className = 'msg ' + cls; el.textContent = text;
   if (cls === 'ok') setTimeout(()=>{ el.className='msg'; }, 4000);
@@ -129,15 +134,36 @@ async function loadLeaders(){
   const rows = await res.json();
   const w = document.getElementById('leaderList');
   if (!rows.length){ w.innerHTML = '<div class="empty">Keine Leiter erfasst.</div>'; return; }
-  w.innerHTML = `<table><thead><tr><th>Name</th><th>Benutzer</th><th>Rolle</th><th></th></tr></thead><tbody>
+  w.innerHTML = `<table><thead><tr><th>Name</th><th>Benutzer</th><th>Rolle</th><th>Anlass</th><th></th></tr></thead><tbody>
     ${rows.map(l=>`<tr>
       <td><b>${l.name}</b><br><span style="color:#65788c;font-size:.8rem">${l.email||''}</span></td>
       <td>${l.username}</td>
       <td><span class="pill">${l.role}</span></td>
-      <td><button class="btn small danger" data-del="${l.id}">löschen</button></td>
+      <td><select class="reasonSel" data-id="${l.id}"><option value="">— keinen —</option>${REASONS.map(r=>`<option value="${r}"${(l.reason||'')===r?' selected':''}>${r}</option>`).join('')}</select></td>
+      <td style="white-space:nowrap"><button class="btn small" data-save-reason="${l.id}">speichern</button> <button class="btn small danger" data-del="${l.id}">löschen</button></td>
     </tr>`).join('')}
   </tbody></table>`;
+  w.querySelectorAll('[data-save-reason]').forEach(b => b.addEventListener('click', () => saveLeaderReason(b.dataset.saveReason)));
   w.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', () => delLeader(b.dataset.del)));
+}
+
+function fillReasonDropdown(){
+  const sel = document.getElementById('lReason');
+  if (!sel) return;
+  sel.innerHTML = '<option value="">— keinen —</option>' +
+    REASONS.map(r => `<option value="${r}">${r}</option>`).join('');
+}
+
+async function saveLeaderReason(id){
+  const sel = document.querySelector('.reasonSel[data-id="'+id+'"]');
+  const val = sel ? sel.value : '';
+  const res = await fetch('/api/leaders/' + id, {
+    method:'PUT', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({reason: val})
+  });
+  let data={}; try{ data = await res.json(); }catch(e){}
+  if (res.ok){ flash(document.getElementById('leaderMsg'),'ok', val ? 'Anlass „'+val+'" zugewiesen.' : 'Anlass entfernt.'); loadLeaders(); }
+  else { flash(document.getElementById('leaderMsg'),'err', data.error || 'Fehler'); }
 }
 
 async function delLeader(id){
@@ -151,6 +177,8 @@ async function delLeader(id){
 async function loadReasons(){
   const res = await fetch('/api/reasons');
   const rows = await res.json();
+  REASONS = rows.map(r => (typeof r === 'string') ? r : r.reason);
+  fillReasonDropdown();
   const w = document.getElementById('reasonList');
   if (!rows.length){ w.innerHTML = '<div class="empty">Keine Anlässe erfasst.</div>'; return; }
   w.innerHTML = `<table><thead><tr><th>Anlass</th><th>Budget (CHF)</th><th></th></tr></thead><tbody>
@@ -216,8 +244,14 @@ document.getElementById('reasonForm').addEventListener('submit', async (e) => {
   else { flash(msg,'err',data.error || 'Fehler'); }
 });
 
-loadLeaders();
-loadReasons();
+async function initAdmin(){
+  // Erst die Anlässe laden, damit REASONS gefüllt ist,
+  // dann die Leiterliste mit den Dropdown-Optionen rendern.
+  await loadReasons();
+  await loadLeaders();
+}
+
+initAdmin();
 </script>
 </body>
 </html>
