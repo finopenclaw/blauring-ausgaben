@@ -1,0 +1,23 @@
+[Unit]
+Description=Blauring Verein Ausgabenverwaltung (Flask/waitress)
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/home/erch/.openclaw/workspace
+ExecStart=/usr/bin/python3 /home/erch/.openclaw/workspace/blauring_app.py
+Restart=always
+RestartSec=3
+Environment=PYTHONUNBUFFERED=1
+
+# Härtung
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=read-only
+ReadWritePaths=/home/erch/.openclaw/workspace
+
+[Install]
+WantedBy=multi-user.target

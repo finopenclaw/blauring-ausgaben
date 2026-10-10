@@ -1,0 +1,14 @@
+# Daten und lokale Artefakte
+blauring.db
+blauring.db-wal
+blauring.db-shm
+uploads/
+state/
+__pycache__/
+*.pyc
+*.pyo
+*.log
+
+# Secrets niemals einchecken
+*.key
+.env

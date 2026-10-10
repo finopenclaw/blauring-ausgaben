@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Blauring Baden — Kassier</title>
+<style>
+  :root{
+    --blue-dark:#012e5b;--blue:#01579b;--blue-light:#2b8fd6;
+    --ink:#12293f;--muted:#65788c;--card:#fff;--line:#dce6ef;--bg:#eef4f9;
+    --open:#b4770a;--paid:#0b6b43;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--ink);min-height:100vh}
+  header{background:linear-gradient(135deg,var(--blue-dark),var(--blue));color:#fff;padding:18px 26px;
+         display:flex;align-items:center;justify-content:space-between;box-shadow:0 4px 16px rgba(0,0,0,.16);
+         border-bottom:4px solid var(--blue-light)}
+  header h1{font-size:1.25rem;display:flex;align-items:center;gap:11px;font-weight:800}
+  header h1 .ring{width:26px;height:26px;border-radius:50%;border:4px solid #fff;display:inline-block}
+  header .who{font-size:.9rem;opacity:.94;text-align:right}
+  header .who b{display:block;font-size:1rem}
+  header .nav{display:flex;gap:8px;margin-top:6px;justify-content:flex-end}
+  .navbtn{background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.38);color:#fff;
+          padding:7px 13px;border-radius:8px;cursor:pointer;font-size:.82rem;text-decoration:none;display:inline-block}
+  .navbtn:hover{background:rgba(255,255,255,.28)}
+  main{max-width:1240px;margin:0 auto;padding:26px}
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin-bottom:24px}
+  .stat{background:var(--card);border-radius:12px;padding:18px 20px;border-left:5px solid var(--blue-light);
+        box-shadow:0 3px 14px rgba(20,50,70,.07)}
+  .stat .v{font-size:1.9rem;font-weight:800;color:var(--blue-dark)}
+  .stat .l{font-size:.8rem;color:var(--muted);margin-top:3px;text-transform:uppercase;letter-spacing:.5px}
+  .card{background:var(--card);border-radius:14px;padding:24px;box-shadow:0 3px 16px rgba(20,50,70,.07);margin-bottom:24px}
+  .card h2{font-size:1.1rem;margin-bottom:16px;color:var(--blue)}
+  .toolbar{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:18px}
+  .btn{padding:11px 20px;border:none;border-radius:9px;cursor:pointer;font-weight:700;font-size:.93rem;
+       background:linear-gradient(135deg,var(--blue-light),var(--blue));color:#fff;transition:transform .15s,box-shadow .15s}
+  .btn:hover{transform:translateY(-1px);box-shadow:0 7px 18px rgba(1,87,155,.3)}
+  .btn.gray{background:#e4edf5;color:var(--ink);box-shadow:none}
+  .btn.danger{background:#fdecea;color:#c0392b;border:1px solid #f5c6c0;box-shadow:none;padding:6px 12px;font-size:.8rem}
+  .btn.danger:hover{background:#f9dcd8;box-shadow:none;transform:none}
+  .btn.small{padding:6px 12px;font-size:.8rem}
+  table{width:100%;border-collapse:collapse;font-size:.92rem}
+  th,td{padding:11px 12px;text-align:left;border-bottom:1px solid var(--line)}
+  th{font-size:.76rem;text-transform:uppercase;letter-spacing:.6px;color:var(--muted)}
+  tbody tr:hover{background:#f4f9fd}
+  .badge{padding:4px 11px;border-radius:20px;font-size:.76rem;font-weight:700;white-space:nowrap}
+  .badge.open{background:#fdf2dc;color:var(--open);border:1px solid #f2d9a8}
+  .badge.paid{background:#e6f5ed;color:var(--paid);border:1px solid #b6e0c9}
+  .empty{padding:26px;text-align:center;color:var(--muted);font-size:.92rem}
+  .msg{margin-top:14px;padding:11px 13px;border-radius:8px;font-size:.88rem;display:none}
+  .msg.err{display:block;background:#fdecea;color:#c0392b;border:1px solid #f5c6c0}
+  .msg.ok{display:block;background:#e8f1fa;color:var(--blue);border:1px solid #bcd9ef}
+</style>
+</head>
+<body>
+<header>
+  <h1><span class="ring"></span>Blauring Baden — Kassier</h1>
+  <div class="who">
+    <b id="uName">…</b><span id="uRole"></span>
+    <div class="nav">
+      <a class="navbtn" href="/admin">⚙️ Stammdaten</a>
+      <button class="navbtn" id="logout">Abmelden</button>
+    </div>
+  </div>
+</header>
+
+<main>
+  <div class="stats">
+    <div class="stat"><div class="v" id="sTotal">0.00 CHF</div><div class="l">Gesamt</div></div>
+    <div class="stat"><div class="v" id="sOpen">0.00 CHF</div><div class="l">Offen</div></div>
+    <div class="stat"><div class="v" id="sOpenN">0</div><div class="l">Offene Belege</div></div>
+    <div class="stat"><div class="v" id="sCount">0</div><div class="l">Belege total</div></div>
+  </div>
+
+  <div class="card" id="byReasonCard">
+    <h2>🏷️ Ausgaben nach Anlass (Budget)</h2>
+    <div id="byReasonWrap"><div class="empty">Lade…</div></div>
+  </div>
+
+  <div class="card" id="byLeaderCard">
+    <h2>👥 Ausgaben nach Leiter</h2>
+    <div id="byLeaderWrap"><div class="empty">Lade…</div></div>
+  </div>
+
+  <div class="card" id="bookingCard">
+    <h2>🔢 Buchungsnummer</h2>
+    <p style="font-size:.86rem;color:var(--muted);margin-bottom:12px">
+      Format <b>JJ-XXXX</b> (z. B. <span id="bkYearNow">26</span>-0001). Läuft automatisch weiter — hier lässt sich die nächste Nummer manuell höher setzen.
+    </p>
+    <div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap">
+      <div>
+        <label style="display:block;font-size:.82rem;font-weight:600;margin-bottom:5px">Nächste Buchungsnummer</label>
+        <div style="display:flex;align-items:center;gap:6px">
+          <span id="bkYear" style="font-weight:800;color:var(--blue)">26</span><span style="font-weight:800;color:var(--blue)">-</span>
+          <input id="bkNext" type="number" min="1" style="width:110px;padding:9px 11px;border:1.5px solid #d5e0ea;border-radius:9px;font-size:.95rem">
+        </div>
+      </div>
+      <button class="btn" id="bkSave">💾 Nummer setzen</button>
+      <div style="font-size:.84rem;color:var(--muted)">
+        Aktuell nächste: <b id="bkCurrent">…</b> · zuletzt vergeben: <b id="bkMax">—</b>
+      </div>
+    </div>
+    <div class="msg" id="bkMsg"></div>
+  </div>
+
+  <div class="card">
+    <h2>📑 Alle Belege <span style="font-size:.8rem;font-weight:400;color:var(--muted)">— neueste Abgabe oben</span></h2>
+    <div class="toolbar">
+      <button class="btn" id="payOpen">💰 Offene als bezahlt markieren</button>
+      <button class="btn gray" id="exportCsv">📥 Export Excel (CSV)</button>
+    </div>
+    <div class="msg" id="msg"></div>
+    <div id="listWrap"><div class="empty">Lade…</div></div>
+  </div>
+</main>
+
+<script>
+const user = JSON.parse(sessionStorage.getItem('blauring_user') || 'null');
+if (!user || (user.role !== 'kassierer' && user.role !== 'admin')) {
+  window.location.href = '/login';
+}
+if (user){ document.getElementById('uName').textContent = user.name;
+           document.getElementById('uRole').textContent = 'Kassier'; }
+
+document.getElementById('logout').addEventListener('click', async () => {
+  try { await fetch('/api/logout', {method:'POST'}); } catch(e){}
+  sessionStorage.removeItem('blauring_user');
+  window.location.href = '/login';
+});
+
+let ROWS = [];
+let BUDGETS = {};
+const msg = document.getElementById('msg');
+
+async function load(){
+  const [expRes, rsnRes] = await Promise.all([
+    fetch('/api/expenses'),
+    fetch('/api/reasons')
+  ]);
+  ROWS = await expRes.json();
+  const reasons = await rsnRes.json();
+  BUDGETS = {};
+  reasons.forEach(r => { BUDGETS[r.reason] = Number(r.budget || 0); });
+  renderStats(); renderList(); renderByReason(); renderLeaders(); renderBooking();
+}
+
+async function renderBooking(){
+  try {
+    const res = await fetch('/api/settings/booking');
+    if (!res.ok) return;
+    const b = await res.json();
+    document.getElementById('bkYear').textContent = b.year;
+    document.getElementById('bkYearNow').textContent = b.year;
+    document.getElementById('bkNext').value = b.next_no;
+    document.getElementById('bkCurrent').textContent = b.next_expense_id;
+    document.getElementById('bkMax').textContent = b.max_used ? (b.year+'-'+String(b.max_used).padStart(4,'0')) : '—';
+  } catch(e){}
+}
+
+function budgetInfo(name){
+  const b = BUDGETS[name] != null ? BUDGETS[name] : null;
+  const spent = ROWS.filter(e=>(e.reason||'')===name).reduce((s,e)=>s+Number(e.amount),0);
+  if (b == null || b <= 0) return {budget:b, spent, rest:null, pct:null};
+  const rest = b - spent;
+  const pct = Math.round(spent / b * 100);
+  return {budget:b, spent, rest, pct};
+}
+
+function renderByReason(){
+  const w = document.getElementById('byReasonWrap');
+  if (!ROWS.length){ w.innerHTML = '<div class="empty">Keine Belege vorhanden.</div>'; return; }
+  const map = new Map();
+  ROWS.forEach(e=>{
+    const key = e.reason || 'Ohne Anlass';
+    if (!map.has(key)) map.set(key, {sum:0, open:0, paid:0, count:0});
+    const g = map.get(key);
+    g.sum += Number(e.amount); g.count++;
+    if (e.paid) g.paid += Number(e.amount); else g.open += Number(e.amount);
+  });
+  const rows = [...map.entries()].sort((a,b)=>b[1].sum-a[1].sum);
+  const grand = rows.reduce((s,[,g])=>s+g.sum,0);
+  w.innerHTML = `<table>
+    <thead><tr><th>Anlass</th><th>Belege</th><th>Ausgegeben</th><th>Budget</th><th>Rest</th><th>Auslastung</th></tr></thead><tbody>
+    ${rows.map(([name,g])=>{
+      const bi = budgetInfo(name);
+      let budgetTxt = '—', restTxt = '—', bar = '';
+      if (bi.budget > 0){
+        budgetTxt = bi.budget.toFixed(2)+' CHF';
+        const over = bi.rest < 0;
+        restTxt = `<span style="color:${over?'#c0392b':'#0b6b43'};font-weight:700">${bi.rest.toFixed(2)} CHF</span>`;
+        const w2 = Math.min(100, bi.pct);
+        const col = bi.pct>=100 ? '#c0392b' : (bi.pct>=80 ? '#d68910' : '#0b6b43');
+        bar = `<div style="background:#e8eef4;border-radius:8px;height:16px;min-width:110px;overflow:hidden">
+                 <div style="height:16px;width:${w2}%;background:${col}"></div>
+               </div><span style="font-size:.78rem;color:var(--muted)">${bi.pct}%</span>`;
+      } else {
+        bar = '<span style="font-size:.8rem;color:var(--muted)">kein Budget</span>';
+      }
+      return `<tr>
+        <td><b>${name}</b></td>
+        <td>${g.count}</td>
+        <td>${g.sum.toFixed(2)} CHF</td>
+        <td>${budgetTxt}</td>
+        <td>${restTxt}</td>
+        <td>${bar}</td>
+      </tr>`;
+    }).join('')}
+    <tr style="background:#f4f9fd;font-weight:800">
+      <td>Gesamt</td>
+      <td>${ROWS.length}</td>
+      <td>${grand.toFixed(2)} CHF</td>
+      <td>${Object.values(BUDGETS).reduce((s,b)=>s+(b||0),0).toFixed(2)} CHF</td>
+      <td colspan="2"></td>
+    </tr>
+    </tbody></table>`;
+}
+
+function renderStats(){
+  const total = ROWS.reduce((s,e)=>s+e.amount,0);
+  const open = ROWS.filter(e=>!e.paid);
+  document.getElementById('sTotal').textContent = total.toFixed(2)+' CHF';
+  document.getElementById('sOpen').textContent = open.reduce((s,e)=>s+e.amount,0).toFixed(2)+' CHF';
+  document.getElementById('sOpenN').textContent = open.length;
+  document.getElementById('sCount').textContent = ROWS.length;
+}
+
+function renderLeaders(){
+  const w = document.getElementById('byLeaderWrap');
+  if (!ROWS.length){ w.innerHTML = '<div class="empty">Keine Belege vorhanden.</div>'; return; }
+  const map = new Map();
+  ROWS.forEach(e=>{
+    const name = e.leader_name || 'Unbekannt';
+    if (!map.has(name)) map.set(name, {open:0, paid:0, count:0, openN:0, receiptN:0});
+    const g = map.get(name);
+    const amt = Number(e.amount);
+    g.count++;
+    if (e.receipt) g.receiptN++;
+    if (e.paid) g.paid += amt; else { g.open += amt; g.openN++; }
+  });
+  const rows = [...map.entries()].sort((a,b)=>(b[1].open+b[1].paid)-(a[1].open+a[1].paid));
+  const totOpen = rows.reduce((s,[,g])=>s+g.open,0);
+  const totPaid = rows.reduce((s,[,g])=>s+g.paid,0);
+  w.innerHTML = `<table>
+    <thead><tr><th>Leiter</th><th>Belege</th><th>Offen</th><th>Abgerechnet</th><th>Total</th></tr></thead><tbody>
+    ${rows.map(([name,g])=>`<tr>
+      <td><b>${name}</b>${g.receiptN?' <span style="font-size:.75rem;color:var(--muted)">('+g.receiptN+' Beleg'+(g.receiptN>1?'e':'')+')</span>':''}</td>
+      <td>${g.count}</td>
+      <td style="color:${g.open>0?'#b4770a':'inherit'}">${g.open.toFixed(2)} CHF</td>
+      <td style="color:#0b6b43">${g.paid.toFixed(2)} CHF</td>
+      <td><b>${(g.open+g.paid).toFixed(2)} CHF</b></td>
+    </tr>`).join('')}
+    <tr style="background:#f4f9fd;font-weight:800">
+      <td>Gesamt</td>
+      <td>${ROWS.length}</td>
+      <td>${totOpen.toFixed(2)} CHF</td>
+      <td>${totPaid.toFixed(2)} CHF</td>
+      <td>${(totOpen+totPaid).toFixed(2)} CHF</td>
+    </tr>
+    </tbody></table>`;
+}
+
+function renderList(){
+  const w = document.getElementById('listWrap');
+  if (!ROWS.length){ w.innerHTML = '<div class="empty">Keine Belege vorhanden.</div>'; return; }
+  w.innerHTML = `<table>
+    <thead><tr><th>ID</th><th>Datum</th><th>Leiter</th><th>Beschreibung</th>
+      <th>Anlass</th><th>Betrag</th><th>Status</th><th></th></tr></thead><tbody>
+    ${ROWS.map(e=>`<tr>
+      <td><b>${e.expense_id||''}</b></td>
+      <td>${e.date||''}</td>
+      <td>${e.leader_name||'—'}</td>
+      <td>${e.description||''}</td>
+      <td>${e.reason||''}</td>
+      <td>${Number(e.amount).toFixed(2)} CHF</td>
+      <td><span class="badge ${e.paid?'paid':'open'}">${e.paid?'Bezahlt':'Offen'}</span></td>
+      <td style="white-space:nowrap">${e.receipt ? `<button class="btn small gray" data-view="${e.receipt}">📎 Beleg</button>` : '<span style="color:#65788c">kein Beleg</span>'} ${e.paid ? `<button class="btn small gray" data-unpay="${e.id}">rückgängig</button>` : `<button class="btn small" data-pay="${e.id}">auszahlen</button>`} <button class="btn small danger" data-del="${e.id}">löschen</button></td>
+    </tr>`).join('')}
+    </tbody></table>`;
+
+  w.querySelectorAll('[data-pay]').forEach(b => b.addEventListener('click', () => payOne(b.dataset.pay, true)));
+  w.querySelectorAll('[data-unpay]').forEach(b => b.addEventListener('click', () => payOne(b.dataset.unpay, false)));
+  w.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', () => delOne(b.dataset.del)));
+  w.querySelectorAll('[data-view]').forEach(b => b.addEventListener('click', () => window.open(b.dataset.view, '_blank')));
+}
+
+async function delOne(id){
+  const e = ROWS.find(r=>String(r.id)===String(id));
+  const label = e ? `${e.expense_id||''} „${e.description||''}" (${Number(e.amount).toFixed(2)} CHF)`.trim() : id;
+  if (!confirm('Buchung '+label+' wirklich löschen? Das kann nicht rückgängig gemacht werden.')) return;
+  const res = await fetch('/api/expenses/'+id, {method:'DELETE'});
+  let data = {}; try { data = await res.json(); } catch(err){}
+  if (res.ok){ msg.className='msg ok'; msg.textContent = data.message || 'Buchung gelöscht.'; load(); }
+  else { msg.className='msg err'; msg.textContent = data.error || 'Löschen fehlgeschlagen.'; }
+}
+
+async function payOne(id, paid){
+  const res = await fetch('/api/expenses/'+id, {
+    method:'PATCH', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({paid: paid})
+  });
+  if (res.ok){ msg.className='msg ok'; msg.textContent = paid ? 'Beleg als bezahlt markiert.' : 'Zahlung rückgängig gemacht – Status wieder offen.'; load(); }
+  else { msg.className='msg err'; msg.textContent='Aktion fehlgeschlagen.'; }
+}
+
+document.getElementById('payOpen').addEventListener('click', async () => {
+  const open = ROWS.filter(e=>!e.paid);
+  if (!open.length){ msg.className='msg ok'; msg.textContent='Keine offenen Belege.'; return; }
+  if (!confirm(`Auszahlung von ${open.length} Belegen über ${open.reduce((s,e)=>s+e.amount,0).toFixed(2)} CHF als erledigt markieren?`)) return;
+  for (const e of open){
+    await fetch('/api/expenses/'+e.id, {method:'PATCH',
+      headers:{'Content-Type':'application/json'}, body: JSON.stringify({paid:true})});
+  }
+  msg.className='msg ok'; msg.textContent = open.length+' Belege als bezahlt markiert.';
+  load();
+});
+
+document.getElementById('exportCsv').addEventListener('click', () => { window.location.href = '/api/export'; });
+
+document.getElementById('bkSave').addEventListener('click', async () => {
+  const msgB = document.getElementById('bkMsg');
+  const val = parseInt(document.getElementById('bkNext').value, 10);
+  if (!val || val < 1){ msgB.className='msg err'; msgB.textContent='Bitte eine gültige Nummer eingeben.'; return; }
+  const res = await fetch('/api/settings/booking', {
+    method:'PUT', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({next_booking_no: val})
+  });
+  let data={}; try{ data = await res.json(); }catch(e){}
+  if (res.ok){ msgB.className='msg ok'; msgB.textContent = data.message || 'Gespeichert.'; renderBooking(); }
+  else { msgB.className='msg err'; msgB.textContent = data.error || 'Fehler'; }
+});
+
+load();
+</script>
+</body>
+</html>

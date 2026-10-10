@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Blauring Baden — Anmeldung</title>
+<style>
+  :root{
+    /* Blauring Baden / Jubla Blau */
+    --blue-dark:#012e5b;   /* dunkles Jubla-Navy */
+    --blue:#01579b;        /* Hauptblau */
+    --blue-light:#2b8fd6;  /* helles Jubla-Blau */
+    --ink:#12293f;
+    --muted:#65788c;
+    --card:#fff;
+    --accent:#e2001a;      /* Jubla-Rot als Akzent */
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    font-family:'Segoe UI',system-ui,-apple-system,sans-serif;
+    min-height:100vh;display:flex;align-items:center;justify-content:center;
+    background:linear-gradient(135deg,var(--blue-dark) 0%,var(--blue) 55%,var(--blue-light) 100%);
+    padding:24px;
+  }
+  .wrap{width:100%;max-width:420px}
+  .brand{text-align:center;color:#fff;margin-bottom:22px}
+  .ring{
+    width:78px;height:78px;border-radius:50%;border:9px solid #fff;
+    margin:0 auto 14px;box-shadow:0 8px 26px rgba(0,0,0,.3)
+  }
+  .brand h1{font-size:1.55rem;letter-spacing:.3px;font-weight:800}
+  .brand p{opacity:.9;font-size:.95rem;margin-top:4px}
+  .card{background:var(--card);border-radius:16px;box-shadow:0 24px 60px rgba(0,0,0,.34);padding:32px;border-top:5px solid var(--blue-light)}
+  .card h2{font-size:1.15rem;color:var(--ink);margin-bottom:20px;text-align:center}
+  label{display:block;font-size:.85rem;font-weight:600;color:var(--ink);margin:14px 0 6px}
+  input,select{
+    width:100%;padding:12px 14px;border:1.5px solid #d5e0ea;border-radius:9px;
+    font-size:1rem;color:var(--ink);transition:border-color .18s,box-shadow .18s;background:#fafcfe
+  }
+  input:focus,select:focus{outline:none;border-color:var(--blue-light);box-shadow:0 0 0 3px rgba(43,143,214,.16)}
+  .btn{
+    width:100%;margin-top:22px;padding:13px;border:none;border-radius:9px;cursor:pointer;
+    font-size:1rem;font-weight:700;color:#fff;background:linear-gradient(135deg,var(--blue-light),var(--blue));
+    transition:transform .15s,box-shadow .15s
+  }
+  .btn:hover{transform:translateY(-1px);box-shadow:0 8px 20px rgba(1,87,155,.32)}
+  .btn:disabled{opacity:.6;cursor:wait;transform:none}
+  .msg{margin-top:14px;padding:11px 13px;border-radius:8px;font-size:.9rem;display:none}
+  .msg.err{display:block;background:#fdecea;color:#c0392b;border:1px solid #f5c6c0}
+  .msg.ok{display:block;background:#e8f1fa;color:var(--blue);border:1px solid #bcd9ef}
+  .hint{margin-top:20px;padding-top:16px;border-top:1px dashed #d5e0ea;font-size:.78rem;color:var(--muted);line-height:1.5}
+  .hint b{color:#41535f}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="brand">
+      <div class="ring"></div>
+      <h1>Blauring Baden</h1>
+      <p>Ausgabenverwaltung</p>
+    </div>
+
+    <div class="card">
+      <h2>Anmeldung</h2>
+      <form id="loginForm" autocomplete="on">
+        <label for="username">Benutzername</label>
+        <input id="username" name="username" type="text" placeholder="z.B. paula" required autofocus>
+
+        <label for="password">Passwort</label>
+        <input id="password" name="password" type="password" placeholder="••••••••" required>
+
+        <button class="btn" id="submitBtn" type="submit">Anmelden</button>
+        <div class="msg" id="msg"></div>
+      </form>
+
+      <div class="hint">
+        <b>Test-Zugänge:</b><br>
+        Leiterin: <b>paula</b> / <b>demo123</b><br>
+        Leiter: <b>marc</b> / <b>demo123</b><br>
+        Kassier: <b>kassier</b> / <b>demo123</b>
+      </div>
+    </div>
+  </div>
+
+<script>
+document.getElementById('loginForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const btn = document.getElementById('submitBtn');
+  const msg = document.getElementById('msg');
+  btn.disabled = true; btn.textContent = 'Prüfe…';
+  msg.className = 'msg';
+
+  try {
+    const res = await fetch('/api/login', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        username: document.getElementById('username').value.trim(),
+        password: document.getElementById('password').value
+      })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Anmeldung fehlgeschlagen');
+
+    sessionStorage.setItem('blauring_user', JSON.stringify(data));
+    msg.className = 'msg ok';
+    msg.textContent = 'Willkommen, ' + data.name + '! Weiterleitung…';
+    const dest = (data.role === 'kassierer' || data.role === 'admin') ? '/kassier' : '/dashboard';
+    setTimeout(() => { window.location.href = dest; }, 500);
+  } catch (err) {
+    msg.className = 'msg err';
+    msg.textContent = err.message;
+    btn.disabled = false; btn.textContent = 'Anmelden';
+  }
+});
+</script>
+</body>
+</html>
